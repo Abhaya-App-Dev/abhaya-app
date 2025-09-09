@@ -37,7 +37,7 @@ const Index = () => {
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-3">
               <Shield className="h-8 w-8 text-white" />
-              <h1 className="text-2xl font-bold text-white">WomenSafe</h1>
+              <h1 className="text-2xl font-bold text-white">Abhaya</h1>
             </div>
             <Button 
               onClick={() => navigate('/auth')}
