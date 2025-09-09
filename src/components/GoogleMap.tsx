@@ -22,7 +22,15 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [needsLocationPermission, setNeedsLocationPermission] = useState(true);
   
-  const API_KEY = 'AIzaSyBrvLvayBygbeBCjCCZQnnDLQeT3vmt0fs';
+  // Use environment variable instead of hardcoded key
+  const API_KEY = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+
+  // Add error handling for missing API key
+  useEffect(() => {
+    if (!API_KEY) {
+      setError('Google Maps API key is not configured. Please check your environment variables.');
+    }
+  }, [API_KEY]);
 
   const getCurrentLocation = useCallback(() => {
     setIsLoading(true);
@@ -41,7 +49,6 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
         },
         (error) => {
           console.warn('Geolocation error:', error);
-          // Use default location if geolocation fails
           setCurrentLocation(center);
           onLocationChange?.(center);
           setIsLoading(false);
@@ -60,11 +67,11 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
   }, [center, onLocationChange]);
 
   const initializeMap = useCallback(async () => {
-    if (!mapRef.current || !currentLocation) return;
+    if (!mapRef.current || !currentLocation || !API_KEY) return;
 
     try {
       const loader = new Loader({
-        apiKey: API_KEY,
+        apiKey: API_KEY, // Now using environment variable
         version: 'weekly',
         libraries: ['places', 'geometry']
       });
@@ -190,7 +197,24 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
     }
   }, [currentLocation, initializeMap]);
 
-  // Show permission request screen first
+  // Show error if API key is missing
+  if (!API_KEY) {
+    return (
+      <div className="w-full h-96 bg-red-50 rounded-lg flex items-center justify-center border border-red-200">
+        <div className="text-center space-y-4 p-6">
+          <div className="text-red-500">
+            <svg className="w-8 h-8 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <p className="text-sm text-red-600">Google Maps API key not found</p>
+          <p className="text-xs text-red-500">Please configure REACT_APP_GOOGLE_MAPS_API_KEY in your environment variables</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Rest of your component remains the same...
   if (needsLocationPermission) {
     return (
       <div className="w-full h-96 bg-blue-50 rounded-lg flex items-center justify-center border border-blue-200">
