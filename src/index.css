@@ -1,0 +1,172 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Women Safety App Design System - Professional & Trustworthy */
+
+@layer base {
+  :root {
+    /* Background & Base Colors */
+    --background: 220 25% 97%;
+    --foreground: 215 25% 15%;
+
+    /* Card & Surface Colors */
+    --card: 0 0% 100%;
+    --card-foreground: 215 25% 15%;
+
+    /* Popover Colors */
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 15%;
+
+    /* Trust Blue - Primary Brand Color */
+    --primary: 214 76% 55%;
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 214 100% 95%;
+    --primary-dark: 214 76% 45%;
+
+    /* Emergency Red - Critical Actions */
+    --emergency: 0 85% 60%;
+    --emergency-foreground: 0 0% 100%;
+    --emergency-light: 0 100% 96%;
+    --emergency-dark: 0 85% 50%;
+
+    /* Safety Green - Safe Actions */
+    --safety: 142 76% 55%;
+    --safety-foreground: 0 0% 100%;
+    --safety-light: 142 100% 95%;
+    --safety-dark: 142 76% 45%;
+
+    /* Secondary Colors */
+    --secondary: 220 25% 96%;
+    --secondary-foreground: 215 25% 20%;
+
+    /* Muted Colors */
+    --muted: 220 25% 94%;
+    --muted-foreground: 215 15% 55%;
+
+    /* Accent Colors */
+    --accent: 260 60% 96%;
+    --accent-foreground: 260 60% 20%;
+
+    /* Destructive Colors */
+    --destructive: 0 85% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Border & Input */
+    --border: 220 20% 88%;
+    --input: 220 20% 88%;
+    --ring: 214 76% 55%;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(214 76% 55%), hsl(260 60% 60%));
+    --gradient-emergency: linear-gradient(135deg, hsl(0 85% 60%), hsl(15 85% 60%));
+    --gradient-safety: linear-gradient(135deg, hsl(142 76% 55%), hsl(160 76% 55%));
+    --gradient-hero: linear-gradient(135deg, hsl(214 76% 55%) 0%, hsl(260 60% 60%) 50%, hsl(142 76% 55%) 100%);
+
+    /* Shadows */
+    --shadow-primary: 0 4px 20px hsl(214 76% 55% / 0.2);
+    --shadow-emergency: 0 4px 20px hsl(0 85% 60% / 0.3);
+    --shadow-safety: 0 4px 20px hsl(142 76% 55% / 0.2);
+    --shadow-card: 0 2px 10px hsl(215 25% 15% / 0.08);
+
+    /* Radius */
+    --radius: 0.75rem;
+
+    /* Sidebar Colors */
+    --sidebar-background: 220 25% 98%;
+    --sidebar-foreground: 215 25% 20%;
+    --sidebar-primary: 214 76% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 25% 94%;
+    --sidebar-accent-foreground: 215 25% 20%;
+    --sidebar-border: 220 20% 88%;
+    --sidebar-ring: 214 76% 55%;
+
+    /* Animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .dark {
+    /* Dark mode - Professional & Safe */
+    --background: 215 25% 8%;
+    --foreground: 220 25% 95%;
+
+    --card: 215 25% 10%;
+    --card-foreground: 220 25% 95%;
+
+    --popover: 215 25% 10%;
+    --popover-foreground: 220 25% 95%;
+
+    --primary: 214 76% 65%;
+    --primary-foreground: 215 25% 8%;
+    --primary-light: 214 76% 85%;
+    --primary-dark: 214 76% 55%;
+
+    --emergency: 0 85% 70%;
+    --emergency-foreground: 215 25% 8%;
+    --emergency-light: 0 85% 90%;
+    --emergency-dark: 0 85% 60%;
+
+    --safety: 142 76% 65%;
+    --safety-foreground: 215 25% 8%;
+    --safety-light: 142 76% 85%;
+    --safety-dark: 142 76% 55%;
+
+    --secondary: 215 25% 12%;
+    --secondary-foreground: 220 25% 90%;
+
+    --muted: 215 25% 14%;
+    --muted-foreground: 215 15% 65%;
+
+    --accent: 260 60% 15%;
+    --accent-foreground: 260 60% 90%;
+
+    --destructive: 0 85% 70%;
+    --destructive-foreground: 215 25% 8%;
+
+    --border: 215 25% 18%;
+    --input: 215 25% 18%;
+    --ring: 214 76% 65%;
+
+    --sidebar-background: 215 25% 6%;
+    --sidebar-foreground: 220 25% 90%;
+    --sidebar-primary: 214 76% 65%;
+    --sidebar-primary-foreground: 215 25% 8%;
+    --sidebar-accent: 215 25% 12%;
+    --sidebar-accent-foreground: 220 25% 90%;
+    --sidebar-border: 215 25% 18%;
+    --sidebar-ring: 214 76% 65%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-muted;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/30 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/50;
+  }
+
+  /* Focus styles for accessibility */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+}
