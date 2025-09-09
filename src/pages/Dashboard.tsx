@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { AlertCircle, Shield, Users, MapPin, Phone, Settings, LogOut } from 'lucide-react';
+import { AlertCircle, Shield, Users, MapPin, Phone, Settings, LogOut, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
 import SOSButton from '@/components/SOSButton';
 import EmergencyContacts from '@/components/EmergencyContacts';
 import GoogleMap from '@/components/GoogleMap';
@@ -20,9 +20,90 @@ const Dashboard = () => {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [safeZones, setSafeZones] = useState<Array<{ lat: number; lng: number; name: string; type: string; phone?: string }>>([]);
+  const [nearestSafePlaces, setNearestSafePlaces] = useState<any[]>([]); // Changed from safeZones
+  const [zoneStatus, setZoneStatus] = useState<{ zone: string; message: string; nearestDistance: number; nearestPlace: any }>({
+    zone: 'unknown',
+    message: 'Getting your location...',
+    nearestDistance: 0,
+    nearestPlace: null
+  });
+  
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Calculate distance between two coordinates using Haversine formula
+  const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const toRad = (value: number) => value * Math.PI / 180;
+    const R = 6371; // Earth radius in km
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
+
+  // Determine safety zone status based on distance to nearest safe place
+  const checkSafetyZone = (userLoc: { lat: number; lng: number }, safePlaces: any[]) => {
+    if (!userLoc || safePlaces.length === 0) {
+      return {
+        zone: 'unknown',
+        message: 'Searching for nearby safe places...',
+        nearestDistance: 0,
+        nearestPlace: null
+      };
+    }
+
+    let nearestDistance = Infinity;
+    let nearestPlace = null;
+
+    // Find nearest safe place from real Google Maps data
+    safePlaces.forEach(place => {
+      // Distance is already calculated in meters from NearbySafePlaces
+      const distanceKm = place.distance ? place.distance / 1000 : 
+                        getDistance(userLoc.lat, userLoc.lng, place.lat, place.lng);
+      
+      if (distanceKm < nearestDistance) {
+        nearestDistance = distanceKm;
+        nearestPlace = place;
+      }
+    });
+
+    // Determine zone based on distance
+    if (nearestDistance <= 1.0) { // Within 1km - Green Zone
+      return {
+        zone: 'green',
+        message: `✅ You are in a safe green zone near ${nearestPlace?.name}`,
+        nearestDistance,
+        nearestPlace
+      };
+    } else if (nearestDistance <= 5.0) { // 1-5km - Orange Zone
+      return {
+        zone: 'orange',
+        message: `⚠️ Orange zone: ${nearestDistance.toFixed(1)}km from ${nearestPlace?.name}`,
+        nearestDistance,
+        nearestPlace
+      };
+    } else { // >5km - Red Zone
+      return {
+        zone: 'red',
+        message: `🚨 High risk red zone: ${nearestDistance.toFixed(1)}km from nearest safe place ${nearestPlace?.name}`,
+        nearestDistance,
+        nearestPlace
+      };
+    }
+  };
+
+  // Handle safe places data from NearbySafePlaces component
+  const handleNearestPlacesUpdate = (places: any[]) => {
+    setNearestSafePlaces(places);
+    
+    if (userLocation && places.length > 0) {
+      const status = checkSafetyZone(userLocation, places);
+      setZoneStatus(status);
+    }
+  };
 
   useEffect(() => {
     // Set up auth state listener
@@ -34,7 +115,6 @@ const Dashboard = () => {
         if (!session) {
           navigate('/auth');
         } else if (session.user) {
-          // Fetch user profile
           setTimeout(() => {
             fetchUserProfile(session.user.id);
           }, 0);
@@ -42,7 +122,6 @@ const Dashboard = () => {
       }
     );
 
-    // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -93,12 +172,10 @@ const Dashboard = () => {
     if (!user) return;
 
     try {
-      // Get user's current location
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           const { latitude, longitude } = position.coords;
           
-          // Send emergency notification via edge function
           const { data, error } = await supabase.functions.invoke('send-emergency-notification', {
             body: {
               user_id: user.id,
@@ -113,8 +190,6 @@ const Dashboard = () => {
             throw error;
           }
 
-          console.log('Emergency notification sent:', data);
-          
           toast({
             title: "SOS Activated",
             description: `Emergency alert sent to ${data?.contacts_notified || 0} contacts with your location.`,
@@ -124,7 +199,6 @@ const Dashboard = () => {
         async (error) => {
           console.error('Geolocation error:', error);
           
-          // Send SOS without location if geolocation fails
           const { data } = await supabase.functions.invoke('send-emergency-notification', {
             body: {
               user_id: user.id,
@@ -151,26 +225,26 @@ const Dashboard = () => {
 
   const handleLocationChange = (location: { lat: number; lng: number }) => {
     setUserLocation(location);
+    
+    // Update zone status if we have safe places data
+    if (nearestSafePlaces.length > 0) {
+      const status = checkSafetyZone(location, nearestSafePlaces);
+      setZoneStatus(status);
+    }
   };
 
   const handleSendEmergencyMessage = async (mediaBlob: Blob, type: 'audio' | 'video') => {
     if (!user) return;
 
     try {
-      // Create a unique filename for the media
       const timestamp = new Date().getTime();
       const fileName = `emergency_${type}_${timestamp}.webm`;
-      
-      // In a production app, you would upload to Supabase Storage
-      // For now, we'll create a mock URL and send the notification
       const mockMediaUrl = `https://emergency-media-storage.com/${fileName}`;
       
-      // Get current location for the emergency message
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           const { latitude, longitude } = position.coords;
           
-          // Send emergency notification with media
           const { data, error } = await supabase.functions.invoke('send-emergency-notification', {
             body: {
               user_id: user.id,
@@ -194,7 +268,6 @@ const Dashboard = () => {
         async (error) => {
           console.error('Geolocation error:', error);
           
-          // Send without location if geolocation fails
           const { data } = await supabase.functions.invoke('send-emergency-notification', {
             body: {
               user_id: user.id,
@@ -219,15 +292,39 @@ const Dashboard = () => {
     }
   };
 
-  // Sample safe zones data - in a real app, this would come from an API
-  useEffect(() => {
-    setSafeZones([
-      { lat: 28.6139, lng: 77.2090, name: 'Delhi Police Control Room', type: 'Police Station', phone: '100' },
-      { lat: 28.5672, lng: 77.2100, name: 'AIIMS Hospital', type: 'Hospital', phone: '011-26588500' },
-      { lat: 19.0760, lng: 72.8777, name: 'Mumbai Police Control Room', type: 'Police Station', phone: '100' },
-      { lat: 12.9716, lng: 77.5946, name: 'Bangalore City Police', type: 'Police Station', phone: '100' }
-    ]);
-  }, []);
+  // Get zone color and icon
+  const getZoneDisplay = (zone: string) => {
+    switch (zone) {
+      case 'green':
+        return {
+          icon: <CheckCircle className="h-5 w-5 text-green-600" />,
+          bgColor: 'bg-green-50',
+          borderColor: 'border-green-200',
+          textColor: 'text-green-800'
+        };
+      case 'orange':
+        return {
+          icon: <AlertTriangle className="h-5 w-5 text-orange-600" />,
+          bgColor: 'bg-orange-50',
+          borderColor: 'border-orange-200',
+          textColor: 'text-orange-800'
+        };
+      case 'red':
+        return {
+          icon: <XCircle className="h-5 w-5 text-red-600" />,
+          bgColor: 'bg-red-50',
+          borderColor: 'border-red-200',
+          textColor: 'text-red-800'
+        };
+      default:
+        return {
+          icon: <MapPin className="h-5 w-5 text-gray-600" />,
+          bgColor: 'bg-gray-50',
+          borderColor: 'border-gray-200',
+          textColor: 'text-gray-800'
+        };
+    }
+  };
 
   if (loading) {
     return (
@@ -236,6 +333,8 @@ const Dashboard = () => {
       </div>
     );
   }
+
+  const zoneDisplay = getZoneDisplay(zoneStatus.zone);
 
   return (
     <div className="min-h-screen bg-background">
@@ -267,6 +366,39 @@ const Dashboard = () => {
           {/* Left Column - Quick Actions */}
           <div className="lg:col-span-2 space-y-6">
             
+            {/* Zone Status Alert */}
+            <Card className={`${zoneDisplay.bgColor} ${zoneDisplay.borderColor} border-2`}>
+              <CardContent className="p-6">
+                <div className="flex items-center space-x-4">
+                  {zoneDisplay.icon}
+                  <div className="flex-1">
+                    <h3 className={`text-lg font-semibold ${zoneDisplay.textColor}`}>
+                      Safety Zone Status: {zoneStatus.zone.toUpperCase()}
+                    </h3>
+                    <p className={`${zoneDisplay.textColor} opacity-90`}>
+                      {zoneStatus.message}
+                    </p>
+                    {zoneStatus.nearestDistance > 0 && zoneStatus.nearestPlace && (
+                      <div className={`text-sm ${zoneDisplay.textColor} opacity-75 mt-2`}>
+                        <p>📍 Nearest safe place: {zoneStatus.nearestDistance.toFixed(1)}km away</p>
+                        <p className="text-xs mt-1">🏢 {zoneStatus.nearestPlace.type}: {zoneStatus.nearestPlace.name}</p>
+                        {zoneStatus.zone === 'orange' && (
+                          <p className="text-xs font-medium mt-1">
+                            🚶‍♀️ Move towards the nearest safe place for better safety
+                          </p>
+                        )}
+                        {zoneStatus.zone === 'red' && (
+                          <p className="text-xs font-medium mt-1">
+                            ⚠️ You're in a high-risk area. Please reach a safe place immediately
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Emergency Alert */}
             <Card className="border-emergency bg-emergency-light">
               <CardContent className="p-6">
@@ -298,13 +430,13 @@ const Dashboard = () => {
               <CardContent>
                 <GoogleMap 
                   onLocationChange={handleLocationChange}
-                  safeZones={safeZones}
+                  safeZones={nearestSafePlaces} // Pass real data from NearbySafePlaces
                 />
               </CardContent>
             </Card>
 
             {/* Emergency Message */}
-            <AudioVideoMessage onSendMessage={handleSendEmergencyMessage} />
+            <AudioVideoMessage userLocation={userLocation} />
 
             {/* Safety Tips for India */}
             <Card>
@@ -350,7 +482,10 @@ const Dashboard = () => {
 
           {/* Right Column - Nearby Safe Places & Emergency Contacts */}
           <div className="space-y-6">
-            <NearbySafePlaces userLocation={userLocation} />
+            <NearbySafePlaces 
+              userLocation={userLocation} 
+              onNearestPlaceUpdate={handleNearestPlacesUpdate} // Callback to receive real data
+            />
             <EmergencyContacts />
             <BroadcastMessaging />
             <IndividualChat />
