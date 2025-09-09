@@ -23,7 +23,7 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
   const [needsLocationPermission, setNeedsLocationPermission] = useState(true);
   
   // Use environment variable instead of hardcoded key
-  const API_KEY = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+  const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
   // Add error handling for missing API key
   useEffect(() => {
