@@ -142,7 +142,7 @@ const Index = () => {
                 In case of immediate danger, always call your local emergency number first
               </p>
               <p className="text-white/70 mt-2">
-                🇺🇸 USA: 911 • 🇬🇧 UK: 999 • 🇪🇺 EU: 112 • 🇦🇺 Australia: 000
+                • IN INDIA: 100 🇺🇸 USA: 911 • 🇬🇧 UK: 999 • 🇪🇺 EU: 112 • 🇦🇺 Australia: 000
               </p>
             </div>
           </div>
