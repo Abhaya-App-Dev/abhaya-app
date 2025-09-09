@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MapPin, Phone, Shield, Building, Heart, Search, RefreshCw } from 'lucide-react';
+import { MapPin, Phone, Shield, Building, Heart, Search, RefreshCw, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 
 interface SafePlace {
   id: string;
@@ -18,19 +18,24 @@ interface SafePlace {
 
 interface NearbySafePlacesProps {
   userLocation?: { lat: number; lng: number } | null;
+  onNearestPlaceUpdate?: (places: SafePlace[]) => void; // New prop to send data to Dashboard
 }
 
-const NearbySafePlaces: React.FC<NearbySafePlacesProps> = ({ userLocation }) => {
+const NearbySafePlaces: React.FC<NearbySafePlacesProps> = ({ userLocation, onNearestPlaceUpdate }) => {
   const [safePlaces, setSafePlaces] = useState<SafePlace[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchRadius, setSearchRadius] = useState<20 | 50>(20);
   const [error, setError] = useState<string | null>(null);
+  const [zoneStatus, setZoneStatus] = useState<{ zone: string; nearestDistance: number; nearestPlace: SafePlace | null }>({
+    zone: 'unknown',
+    nearestDistance: 0,
+    nearestPlace: null
+  });
 
-  // Your Google Maps API Key (same as in GoogleMap component)
   const API_KEY = 'AIzaSyBrvLvayBygbeBCjCCZQnnDLQeT3vmt0fs';
 
   const getDistance = (pos1: { lat: number; lng: number }, pos2: { lat: number; lng: number }) => {
-    const R = 6371e3;
+    const R = 6371e3; // in meters
     const φ1 = pos1.lat * Math.PI/180;
     const φ2 = pos2.lat * Math.PI/180;
     const Δφ = (pos2.lat-pos1.lat) * Math.PI/180;
@@ -44,77 +49,33 @@ const NearbySafePlaces: React.FC<NearbySafePlacesProps> = ({ userLocation }) => 
     return R * c;
   };
 
-  const searchNearbyPlaces = async (location: { lat: number; lng: number }, radius: number) => {
-    const allPlaces: SafePlace[] = [];
+  // Calculate zone status based on nearest safe place
+  const calculateZoneStatus = (places: SafePlace[]) => {
+    if (!userLocation || places.length === 0) {
+      return { zone: 'unknown', nearestDistance: 0, nearestPlace: null };
+    }
 
-    // Define search queries for different types of safe places
-    const searchQueries = [
-      { query: 'police station', type: 'police' as const },
-      { query: 'hospital', type: 'hospital' as const },
-      { query: 'government office', type: 'government' as const },
-      { query: 'fire station', type: 'government' as const },
-      { query: 'district collectorate', type: 'government' as const },
-      { query: 'civil hospital', type: 'hospital' as const },
-      { query: 'emergency services', type: 'hospital' as const }
-    ];
+    let nearestDistance = Infinity;
+    let nearestPlace: SafePlace | null = null;
 
-    try {
-      for (const searchQuery of searchQueries) {
-        const response = await fetch(
-          `https://maps.googleapis.com/maps/api/place/nearbysearch/json?` +
-          `location=${location.lat},${location.lng}&` +
-          `radius=${radius}&` +
-          `keyword=${encodeURIComponent(searchQuery.query)}&` +
-          `key=${API_KEY}`,
-          {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            }
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        if (data.results) {
-          const places = data.results.map((place: any) => ({
-            id: place.place_id,
-            name: place.name,
-            type: searchQuery.type,
-            address: place.vicinity || place.formatted_address || 'Address not available',
-            phone: place.formatted_phone_number || undefined,
-            lat: place.geometry.location.lat,
-            lng: place.geometry.location.lng,
-            rating: place.rating,
-            isOpen: place.opening_hours?.open_now,
-            distance: getDistance(location, {
-              lat: place.geometry.location.lat,
-              lng: place.geometry.location.lng
-            })
-          }));
-
-          allPlaces.push(...places);
-        }
+    places.forEach(place => {
+      if (place.distance && place.distance < nearestDistance) {
+        nearestDistance = place.distance;
+        nearestPlace = place;
       }
+    });
 
-      // Remove duplicates based on place_id and sort by distance
-      const uniquePlaces = allPlaces.filter((place, index, self) => 
-        index === self.findIndex(p => p.id === place.id)
-      );
+    const distanceInKm = nearestDistance / 1000;
 
-      return uniquePlaces.sort((a, b) => (a.distance || 0) - (b.distance || 0));
-
-    } catch (error) {
-      console.error('Error fetching places:', error);
-      throw error;
+    if (distanceInKm <= 1.0) {
+      return { zone: 'green', nearestDistance: distanceInKm, nearestPlace };
+    } else if (distanceInKm <= 5.0) {
+      return { zone: 'orange', nearestDistance: distanceInKm, nearestPlace };
+    } else {
+      return { zone: 'red', nearestDistance: distanceInKm, nearestPlace };
     }
   };
 
-  // Alternative method using browser's built-in Google Maps integration
   const searchWithGoogleService = async (location: { lat: number; lng: number }, radius: number) => {
     if (!window.google) {
       throw new Error('Google Maps not loaded');
@@ -130,6 +91,8 @@ const NearbySafePlaces: React.FC<NearbySafePlacesProps> = ({ userLocation }) => 
         { type: 'hospital' as const, keywords: ['hospital', 'emergency', 'medical center'] },
         { type: 'government' as const, keywords: ['government office', 'collectorate', 'fire station'] }
       ];
+
+      const totalSearches = searchTypes.length * searchTypes[0].keywords.length;
 
       searchTypes.forEach((searchType) => {
         searchType.keywords.forEach((keyword) => {
@@ -148,7 +111,7 @@ const NearbySafePlaces: React.FC<NearbySafePlacesProps> = ({ userLocation }) => 
                 name: place.name!,
                 type: searchType.type as 'police' | 'hospital' | 'government',
                 address: place.vicinity || 'Address not available',
-                phone: undefined, // Will be fetched separately if needed
+                phone: undefined,
                 lat: place.geometry!.location!.lat(),
                 lng: place.geometry!.location!.lng(),
                 rating: place.rating,
@@ -163,13 +126,14 @@ const NearbySafePlaces: React.FC<NearbySafePlacesProps> = ({ userLocation }) => 
             }
 
             // Check if all searches are complete
-            if (completedSearches === searchTypes.length * searchTypes[0].keywords.length) {
+            if (completedSearches === totalSearches) {
               // Remove duplicates and sort by distance
               const uniquePlaces = allPlaces.filter((place, index, self) => 
                 index === self.findIndex(p => p.id === place.id)
               );
 
-              resolve(uniquePlaces.sort((a, b) => (a.distance || 0) - (b.distance || 0)));
+              const sortedPlaces = uniquePlaces.sort((a, b) => (a.distance || 0) - (b.distance || 0));
+              resolve(sortedPlaces);
             }
           });
         });
@@ -193,7 +157,15 @@ const NearbySafePlaces: React.FC<NearbySafePlacesProps> = ({ userLocation }) => 
       }
 
       // Return top 8 nearest places
-      setSafePlaces(places.slice(0, 8));
+      const nearestPlaces = places.slice(0, 8);
+      setSafePlaces(nearestPlaces);
+
+      // Calculate and update zone status
+      const status = calculateZoneStatus(nearestPlaces);
+      setZoneStatus(status);
+
+      // Send data to Dashboard for zone display
+      onNearestPlaceUpdate?.(nearestPlaces);
 
     } catch (error) {
       console.error('Error finding nearby places:', error);
@@ -225,6 +197,32 @@ const NearbySafePlaces: React.FC<NearbySafePlacesProps> = ({ userLocation }) => 
         return <Building className="h-5 w-5 text-green-600" />;
       default:
         return <MapPin className="h-5 w-5 text-primary" />;
+    }
+  };
+
+  const getZoneIcon = (zone: string) => {
+    switch (zone) {
+      case 'green':
+        return <CheckCircle className="h-4 w-4 text-green-600" />;
+      case 'orange':
+        return <AlertTriangle className="h-4 w-4 text-orange-600" />;
+      case 'red':
+        return <XCircle className="h-4 w-4 text-red-600" />;
+      default:
+        return <MapPin className="h-4 w-4 text-gray-600" />;
+    }
+  };
+
+  const getZoneColor = (zone: string) => {
+    switch (zone) {
+      case 'green':
+        return 'bg-green-50 border-green-200 text-green-800';
+      case 'orange':
+        return 'bg-orange-50 border-orange-200 text-orange-800';
+      case 'red':
+        return 'bg-red-50 border-red-200 text-red-800';
+      default:
+        return 'bg-gray-50 border-gray-200 text-gray-800';
     }
   };
 
@@ -353,6 +351,27 @@ const NearbySafePlaces: React.FC<NearbySafePlacesProps> = ({ userLocation }) => 
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {/* Zone Status Mini Card */}
+        {zoneStatus.zone !== 'unknown' && (
+          <div className={`p-3 rounded-lg border mb-4 ${getZoneColor(zoneStatus.zone)}`}>
+            <div className="flex items-center space-x-2">
+              {getZoneIcon(zoneStatus.zone)}
+              <div className="flex-1">
+                <p className="text-sm font-medium">
+                  {zoneStatus.zone === 'green' && '✅ You are in a safe zone'}
+                  {zoneStatus.zone === 'orange' && `⚠️ ${zoneStatus.nearestDistance.toFixed(1)}km to safety`}
+                  {zoneStatus.zone === 'red' && `🚨 ${zoneStatus.nearestDistance.toFixed(1)}km from nearest safe place`}
+                </p>
+                {zoneStatus.nearestPlace && (
+                  <p className="text-xs opacity-75">
+                    Nearest: {zoneStatus.nearestPlace.name}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {safePlaces.length === 0 ? (
           <div className="text-center py-6">
             <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -377,7 +396,9 @@ const NearbySafePlaces: React.FC<NearbySafePlacesProps> = ({ userLocation }) => 
             {safePlaces.map((place, index) => (
               <div
                 key={place.id}
-                className="p-3 border rounded-lg hover:shadow-sm transition-shadow"
+                className={`p-3 border rounded-lg hover:shadow-sm transition-shadow ${
+                  index === 0 ? 'border-green-200 bg-green-50' : ''
+                }`}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
