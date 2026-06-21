@@ -200,7 +200,7 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
   // Show error if API key is missing
   if (!API_KEY) {
     return (
-      <div className="w-full h-96 bg-red-50 rounded-lg flex items-center justify-center border border-red-200">
+      <div className="w-full h-full bg-red-50 rounded-lg flex items-center justify-center border border-red-200">
         <div className="text-center space-y-4 p-6">
           <div className="text-red-500">
             <svg className="w-8 h-8 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
@@ -208,7 +208,7 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
             </svg>
           </div>
           <p className="text-sm text-red-600">Google Maps API key not found</p>
-          <p className="text-xs text-red-500">Please configure REACT_APP_GOOGLE_MAPS_API_KEY in your environment variables</p>
+          <p className="text-xs text-red-500">Please configure VITE_GOOGLE_MAPS_API_KEY in your environment variables</p>
         </div>
       </div>
     );
@@ -217,7 +217,7 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
   // Rest of your component remains the same...
   if (needsLocationPermission) {
     return (
-      <div className="w-full h-96 bg-blue-50 rounded-lg flex items-center justify-center border border-blue-200">
+      <div className="w-full h-full bg-blue-50 rounded-lg flex items-center justify-center border border-blue-200">
         <div className="text-center space-y-4 p-6">
           <div className="text-blue-600">
             <svg className="w-12 h-12 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -242,7 +242,7 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
 
   if (isLoading) {
     return (
-      <div className="w-full h-96 bg-gray-50 rounded-lg flex items-center justify-center">
+      <div className="w-full h-full bg-gray-50 rounded-lg flex items-center justify-center">
         <div className="text-center space-y-4 p-6">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
           <p className="text-sm text-gray-600">Getting your location...</p>
@@ -254,7 +254,7 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
 
   if (error) {
     return (
-      <div className="w-full h-96 bg-red-50 rounded-lg flex items-center justify-center border border-red-200">
+      <div className="w-full h-full bg-red-50 rounded-lg flex items-center justify-center border border-red-200">
         <div className="text-center space-y-4 p-6">
           <div className="text-red-500">
             <svg className="w-8 h-8 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
@@ -277,7 +277,7 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
   }
 
   return (
-    <div className="relative w-full h-96 rounded-lg overflow-hidden border">
+    <div className="relative w-full h-full rounded-lg overflow-hidden border">
       <div ref={mapRef} className="w-full h-full" />
       {isMapLoaded && (
         <button
