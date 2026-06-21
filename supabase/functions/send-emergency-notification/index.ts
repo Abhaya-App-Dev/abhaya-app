@@ -13,6 +13,7 @@ interface EmergencyRequest {
   longitude?: number;
   message?: string;
   media_url?: string;
+  contact_ids?: string[];
 }
 
 serve(async (req) => {
@@ -22,7 +23,7 @@ serve(async (req) => {
   }
 
   try {
-    const { user_id, latitude, longitude, message, media_url }: EmergencyRequest = await req.json()
+    const { user_id, latitude, longitude, message, media_url, contact_ids }: EmergencyRequest = await req.json()
 
     // Initialize Supabase client
     const supabaseClient = createClient(
@@ -40,11 +41,17 @@ serve(async (req) => {
       .eq('user_id', user_id)
       .single()
 
-    // Get all emergency contacts for the user
-    const { data: contacts, error: contactsError } = await supabaseClient
+    // Get emergency contacts for the user
+    let contactsQuery = supabaseClient
       .from('emergency_contacts')
       .select('*')
       .eq('user_id', user_id)
+
+    if (contact_ids && contact_ids.length > 0) {
+      contactsQuery = contactsQuery.in('id', contact_ids)
+    }
+
+    const { data: contacts, error: contactsError } = await contactsQuery
 
     if (contactsError) {
       console.error('Error fetching contacts:', contactsError)
@@ -52,7 +59,7 @@ serve(async (req) => {
     }
 
     if (!contacts || contacts.length === 0) {
-      throw new Error('No emergency contacts found')
+      throw new Error('No emergency contacts found to notify')
     }
 
     // Create location URL if coordinates are provided

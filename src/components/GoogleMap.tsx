@@ -20,7 +20,7 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
   const [isMapLoaded, setIsMapLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [needsLocationPermission, setNeedsLocationPermission] = useState(true);
+  const [needsLocationPermission, setNeedsLocationPermission] = useState(false);
   
   // Use environment variable instead of hardcoded key
   const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
@@ -49,8 +49,12 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
         },
         (error) => {
           console.warn('Geolocation error:', error);
-          setCurrentLocation(center);
-          onLocationChange?.(center);
+          if (error.code === error.PERMISSION_DENIED || error.code === 1) {
+            setNeedsLocationPermission(true);
+          } else {
+            setCurrentLocation(center);
+            onLocationChange?.(center);
+          }
           setIsLoading(false);
         },
         { 
@@ -65,6 +69,12 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
       setIsLoading(false);
     }
   }, [center, onLocationChange]);
+
+  // Auto-detect location on component load
+  useEffect(() => {
+    getCurrentLocation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const initializeMap = useCallback(async () => {
     if (!mapRef.current || !currentLocation || !API_KEY) return;
